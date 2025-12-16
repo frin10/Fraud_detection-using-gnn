@@ -1,0 +1,13 @@
+torch
+torch-geometric
+torch-scatter
+torch-sparse
+pandas
+numpy
+networkx
+scikit-learn
+joblib
+streamlit
+matplotlib
+seaborn
+plotly
