@@ -2,3 +2,4 @@
 .pkl
 .csv
 .pt
+__pycache__/
