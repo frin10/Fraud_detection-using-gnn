@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNN Fraud Detection System</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .stat-card {
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        .tab-button.active {
+            border-bottom: 3px solid #3b82f6;
+            color: #3b82f6;
+        }
+        .loading {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">🔍 GNN Fraud Detection System</h1>
+                    <p class="text-gray-600 mt-1">Graph Neural Network powered fraud detection with explainable analytics</p>
+                </div>
+                <div id="statusIndicator" class="hidden">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                        <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                        Data Loaded
+                    </span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Upload Section -->
+        <div id="uploadSection" class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Upload Transaction Data</h2>
+            <div class="flex items-center space-x-4">
+                <input type="file" id="fileInput" accept=".csv" class="block w-full text-sm text-gray-500
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100 cursor-pointer">
+                
+                <div class="flex items-center space-x-2">
+                    <label class="text-sm text-gray-600">Threshold:</label>
+                    <input type="number" id="threshold" value="0.5" min="0" max="1" step="0.05" 
+                           class="border rounded px-3 py-2 w-20 text-sm">
+                </div>
+                
+                <button onclick="uploadFile()" id="uploadBtn" 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                    Upload & Analyze
+                </button>
+            </div>
+            <div id="uploadStatus" class="mt-4"></div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div id="statsSection" class="hidden mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="stat-card bg-white rounded-lg shadow-md p-6">
+                    <p class="text-gray-500 text-sm">Transactions</p>
+                    <p id="statTransactions" class="text-3xl font-bold text-gray-900">-</p>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow-md p-6">
+                    <p class="text-gray-500 text-sm">Accounts</p>
+                    <p id="statAccounts" class="text-3xl font-bold text-gray-900">-</p>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow-md p-6">
+                    <p class="text-gray-500 text-sm">Fraud Accounts</p>
+                    <p id="statFraud" class="text-3xl font-bold text-red-600">-</p>
+                </div>
+                <div class="stat-card bg-white rounded-lg shadow-md p-6">
+                    <p class="text-gray-500 text-sm">Fraud Chains</p>
+                    <p id="statChains" class="text-3xl font-bold text-orange-600">-</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div id="tabsSection" class="hidden">
+            <div class="bg-white rounded-lg shadow-md">
+                <!-- Tab Headers -->
+                <div class="border-b flex space-x-8 px-6">
+                    <button onclick="showTab('overview')" class="tab-button active py-4 px-2 font-medium text-gray-700">
+                        📊 Overview
+                    </button>
+                    <button onclick="showTab('network')" class="tab-button py-4 px-2 font-medium text-gray-700">
+                        🕸️ Network
+                    </button>
+                    <button onclick="showTab('fraud')" class="tab-button py-4 px-2 font-medium text-gray-700">
+                        🎯 Fraud Accounts
+                    </button>
+                    <button onclick="showTab('chains')" class="tab-button py-4 px-2 font-medium text-gray-700">
+                        ⛓️ Fraud Chains
+                    </button>
+                    <button onclick="showTab('analytics')" class="tab-button py-4 px-2 font-medium text-gray-700">
+                        📈 Analytics
+                    </button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="p-6">
+                    <!-- Overview Tab -->
+                    <div id="overviewTab" class="tab-content">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div id="typeChart"></div>
+                            <div id="amountChart"></div>
+                        </div>
+                        <h3 class="text-lg font-semibold mb-3">Sample Transactions</h3>
+                        <div class="overflow-x-auto">
+                            <div id="sampleTable" class="text-sm"></div>
+                        </div>
+                    </div>
+
+                    <!-- Network Tab -->
+                    <div id="networkTab" class="tab-content hidden">
+                        <div id="networkChart"></div>
+                        <div id="nodeDetails" class="mt-4"></div>
+                    </div>
+
+                    <!-- Fraud Accounts Tab -->
+                    <div id="fraudTab" class="tab-content hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div id="fraudProbChart"></div>
+                            <div id="riskChart"></div>
+                        </div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold">Fraud Accounts List</h3>
+                            <a href="/download/fraud_accounts" 
+                               class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition text-sm">
+                                📥 Download CSV
+                            </a>
+                        </div>
+                        <div id="fraudTable" class="overflow-x-auto"></div>
+                    </div>
+
+                    <!-- Fraud Chains Tab -->
+                    <div id="chainsTab" class="tab-content hidden">
+                        <div id="chainsList"></div>
+                    </div>
+
+                    <!-- Analytics Tab -->
+                    <div id="analyticsTab" class="tab-content hidden">
+                        <div id="topAccountsChart" class="mb-6"></div>
+                        <div id="confusionMatrixChart" class="mb-6"></div>
+                        <div id="rocChart" class="mb-6"></div>
+                        <div id="thresholdChart" class="mb-6"></div>
+                        <div id="temporalChart" class="mb-6"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let currentData = null;
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('Please select a file', 'error');
+                return;
+            }
+
+            const threshold = document.getElementById('threshold').value;
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('threshold', threshold);
+
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<div class="loading mx-auto"></div>';
+            
+            showStatus('Uploading and analyzing...', 'loading');
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showStatus(data.error, 'error');
+                } else {
+                    currentData = data.stats;
+                    showStatus('Analysis complete!', 'success');
+                    displayStats(data.stats);
+                    loadAllData();
+                    document.getElementById('statusIndicator').classList.remove('hidden');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.textContent = 'Upload & Analyze';
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('uploadStatus');
+            const colors = {
+                success: 'bg-green-100 text-green-800',
+                error: 'bg-red-100 text-red-800',
+                loading: 'bg-blue-100 text-blue-800'
+            };
+            statusDiv.innerHTML = `
+                <div class="p-3 rounded-md ${colors[type]}">
+                    ${message}
+                </div>
+            `;
+        }
+
+        function displayStats(stats) {
+            document.getElementById('statTransactions').textContent = stats.total_transactions.toLocaleString();
+            document.getElementById('statAccounts').textContent = stats.total_accounts.toLocaleString();
+            document.getElementById('statFraud').textContent = stats.fraud_accounts.toLocaleString();
+            document.getElementById('statChains').textContent = stats.fraud_chains.toLocaleString();
+            
+            document.getElementById('statsSection').classList.remove('hidden');
+            document.getElementById('tabsSection').classList.remove('hidden');
+        }
+
+        async function loadAllData() {
+            await loadOverview();
+            await loadNetwork();
+            await loadFraudAccounts();
+            await loadFraudChains();
+            await loadAnalytics();
+        }
+
+        async function loadOverview() {
+            const response = await fetch('/api/overview');
+            const data = await response.json();
+
+            // Transaction types pie chart
+            const typeData = [{
+                values: Object.values(data.type_counts),
+                labels: Object.keys(data.type_counts),
+                type: 'pie'
+            }];
+            Plotly.newPlot('typeChart', typeData, {
+                title: 'Transaction Types',
+                height: 300
+            });
+
+            // Amount histogram
+            const amountData = [{
+                x: data.amounts,
+                type: 'histogram',
+                nbinsx: 50
+            }];
+            Plotly.newPlot('amountChart', amountData, {
+                title: 'Transaction Amount Distribution',
+                height: 300,
+                xaxis: {title: 'Amount'},
+                yaxis: {title: 'Frequency'}
+            });
+
+            // Sample table
+            let tableHTML = '<table class="min-w-full divide-y divide-gray-200">';
+            tableHTML += '<thead class="bg-gray-50"><tr>';
+            Object.keys(data.sample_transactions[0]).forEach(key => {
+                tableHTML += `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">${key}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            data.sample_transactions.forEach(row => {
+                tableHTML += '<tr>';
+                Object.values(row).forEach(val => {
+                    tableHTML += `<td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">${val}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+            tableHTML += '</tbody></table>';
+            document.getElementById('sampleTable').innerHTML = tableHTML;
+        }
+
+        async function loadNetwork() {
+            const response = await fetch('/api/network');
+            const data = await response.json();
+
+            const edgeTrace = {
+                x: [], y: [],
+                mode: 'lines',
+                line: {width: 0.5, color: '#aaa'},
+                hoverinfo: 'none'
+            };
+
+            data.edges.forEach(edge => {
+                edgeTrace.x.push(edge.x0, edge.x1, null);
+                edgeTrace.y.push(edge.y0, edge.y1, null);
+            });
+
+            const nodeTrace = {
+                x: data.nodes.map(n => n.x),
+                y: data.nodes.map(n => n.y),
+                mode: 'markers',
+                marker: {
+                    size: 10,
+                    color: data.nodes.map(n => n.is_fraud ? 'red' : '#9ecae1')
+                },
+                text: data.nodes.map(n => n.id),
+                hoverinfo: 'text'
+            };
+
+            Plotly.newPlot('networkChart', [edgeTrace, nodeTrace], {
+                title: 'Transaction Network (Red = Fraud)',
+                height: 500,
+                showlegend: false,
+                xaxis: {showgrid: false, zeroline: false, showticklabels: false},
+                yaxis: {showgrid: false, zeroline: false, showticklabels: false}
+            });
+        }
+
+        async function loadFraudAccounts() {
+            const response = await fetch('/api/fraud_accounts');
+            const data = await response.json();
+
+            // Probability histogram
+            const probData = [{
+                x: data.probabilities,
+                type: 'histogram',
+                nbinsx: 30
+            }];
+            Plotly.newPlot('fraudProbChart', probData, {
+                title: 'Fraud Probability Distribution',
+                height: 300,
+                xaxis: {title: 'Probability'},
+                yaxis: {title: 'Count'}
+            });
+
+            // Risk bar chart
+            const riskData = [{
+                x: Object.keys(data.risk_counts),
+                y: Object.values(data.risk_counts),
+                type: 'bar',
+                marker: {
+                    color: Object.keys(data.risk_counts).map(r => 
+                        r === 'HIGH' ? 'red' : r === 'MEDIUM' ? 'orange' : 'green'
+                    )
+                }
+            }];
+            Plotly.newPlot('riskChart', riskData, {
+                title: 'Risk Category Breakdown',
+                height: 300
+            });
+
+            // Fraud accounts table
+            let tableHTML = '<table class="min-w-full divide-y divide-gray-200">';
+            tableHTML += '<thead class="bg-gray-50"><tr>';
+            tableHTML += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Account</th>';
+            tableHTML += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Probability</th>';
+            tableHTML += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Risk</th>';
+            tableHTML += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            data.accounts.forEach(acc => {
+                const riskColor = acc.risk === 'HIGH' ? 'text-red-600' : 
+                                 acc.risk === 'MEDIUM' ? 'text-orange-600' : 'text-green-600';
+                tableHTML += '<tr>';
+                tableHTML += `<td class="px-4 py-2 whitespace-nowrap text-sm">${acc.account}</td>`;
+                tableHTML += `<td class="px-4 py-2 whitespace-nowrap text-sm">${acc.fraud_probability.toFixed(4)}</td>`;
+                tableHTML += `<td class="px-4 py-2 whitespace-nowrap text-sm font-medium ${riskColor}">${acc.risk}</td>`;
+                tableHTML += '</tr>';
+            });
+            tableHTML += '</tbody></table>';
+            document.getElementById('fraudTable').innerHTML = tableHTML;
+        }
+
+        async function loadFraudChains() {
+            const response = await fetch('/api/fraud_chains');
+            const data = await response.json();
+
+            let html = '';
+            if (data.chains.length === 0) {
+                html = '<p class="text-gray-500">No fraud chains detected.</p>';
+            } else {
+                data.chains.forEach(chain => {
+                    html += `
+                        <div class="border rounded-lg p-4 mb-3 hover:bg-gray-50">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold">Chain ${chain.id}</h4>
+                                <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">
+                                    Risk: ${(chain.risk_score * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                            <code class="block bg-gray-100 p-3 rounded text-sm mb-2">${chain.chain_str}</code>
+                            <p class="text-sm text-gray-600">
+                                ${chain.fraud_nodes} of ${chain.length} accounts are fraudulent
+                            </p>
+                        </div>
+                    `;
+                });
+            }
+            document.getElementById('chainsList').innerHTML = html;
+        }
+
+        async function loadAnalytics() {
+            const response = await fetch('/api/analytics');
+            const data = await response.json();
+
+            // Top accounts
+            const accountData = [{
+                x: data.top_accounts.accounts,
+                y: data.top_accounts.counts,
+                type: 'bar'
+            }];
+            Plotly.newPlot('topAccountsChart', accountData, {
+                title: 'Top 10 Most Active Accounts',
+                height: 300
+            });
+
+            // Confusion matrix
+            if (data.confusion_matrix) {
+                Plotly.newPlot('confusionMatrixChart', [{
+                    z: data.confusion_matrix,
+                    type: 'heatmap',
+                    colorscale: 'Blues',
+                    text: data.confusion_matrix,
+                    texttemplate: '%{text}',
+                    textfont: {size: 16}
+                }], {
+                    title: 'Confusion Matrix',
+                    height: 400,
+                    xaxis: {title: 'Predicted', ticktext: ['Non-Fraud', 'Fraud'], tickvals: [0, 1]},
+                    yaxis: {title: 'Actual', ticktext: ['Non-Fraud', 'Fraud'], tickvals: [0, 1]}
+                });
+            }
+
+            // ROC curve
+            if (data.roc) {
+                const rocData = [
+                    {x: data.roc.fpr, y: data.roc.tpr, mode: 'lines', name: `ROC (AUC=${data.roc.auc.toFixed(3)})`},
+                    {x: [0, 1], y: [0, 1], mode: 'lines', name: 'Random', line: {dash: 'dash'}}
+                ];
+                Plotly.newPlot('rocChart', rocData, {
+                    title: `ROC Curve (AUC = ${data.roc.auc.toFixed(3)})`,
+                    height: 400,
+                    xaxis: {title: 'False Positive Rate'},
+                    yaxis: {title: 'True Positive Rate'}
+                });
+            }
+
+            // Threshold analysis
+            if (data.threshold_analysis) {
+                const threshData = [
+                    {x: data.threshold_analysis.thresholds, y: data.threshold_analysis.recalls, 
+                     mode: 'lines', name: 'Recall'},
+                    {x: data.threshold_analysis.thresholds, y: data.threshold_analysis.precisions, 
+                     mode: 'lines', name: 'Precision'}
+                ];
+                Plotly.newPlot('thresholdChart', threshData, {
+                    title: 'Precision & Recall vs Threshold',
+                    height: 400,
+                    xaxis: {title: 'Threshold'},
+                    yaxis: {title: 'Score'}
+                });
+            }
+
+            // Temporal analysis
+            if (data.temporal) {
+                const temporalData = [{
+                    x: data.temporal.steps,
+                    y: data.temporal.avg_probs,
+                    mode: 'lines+markers',
+                    type: 'scatter'
+                }];
+                Plotly.newPlot('temporalChart', temporalData, {
+                    title: 'Average Fraud Probability Over Time',
+                    height: 400,
+                    xaxis: {title: 'Time Step'},
+                    yaxis: {title: 'Average Fraud Probability'}
+                });
+            }
+        }
+
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
