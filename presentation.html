@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNN Fraud Detection Presentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .presentation-container {
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .slide {
+            display: none;
+            min-height: 600px;
+            padding: 60px 80px;
+            position: relative;
+        }
+
+        .slide.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-number {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: #667eea;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        h1 {
+            font-size: 48px;
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        h2 {
+            font-size: 36px;
+            color: #667eea;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+
+        h3 {
+            font-size: 24px;
+            color: #4a5568;
+            margin: 25px 0 15px 0;
+            font-weight: 600;
+        }
+
+        p, li {
+            font-size: 20px;
+            color: #4a5568;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+
+        ul {
+            margin-left: 30px;
+        }
+
+        li {
+            margin-bottom: 20px;
+        }
+
+        .highlight {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            font-size: 22px;
+            color: #718096;
+            margin-top: 10px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 30px 40px;
+            background: #f7fafc;
+            border-top: 2px solid #e2e8f0;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .slide-indicator {
+            font-size: 14px;
+            color: #718096;
+            font-weight: 500;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .card {
+            background: #f7fafc;
+            padding: 25px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+
+        .metric {
+            font-size: 42px;
+            font-weight: 700;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 5px;
+        }
+
+        .architecture-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        .flow-arrow {
+            text-align: center;
+            font-size: 24px;
+            color: #667eea;
+            margin: 10px 0;
+        }
+
+        .conclusion-box {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-top: 30px;
+        }
+
+        .conclusion-box h3 {
+            color: white;
+            margin-top: 0;
+        }
+
+        .title-slide {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .title-slide h1 {
+            color: white;
+            font-size: 56px;
+            margin-bottom: 20px;
+        }
+
+        .title-slide .subtitle {
+            color: rgba(255,255,255,0.9);
+            font-size: 24px;
+        }
+
+        .icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation-container">
+        <!-- Slide 1: Title -->
+        <div class="slide active title-slide">
+            <div class="icon">🔍</div>
+            <h1>Fraud Detection Using Graph Neural Networks</h1>
+            <p class="subtitle">Detecting Financial Fraud Through Network Analysis</p>
+            <p class="subtitle" style="margin-top: 40px; font-size: 18px;">A Mini Project Presentation</p>
+        </div>
+
+        <!-- Slide 2: Problem Statement -->
+        <div class="slide">
+            <div class="slide-number">2/12</div>
+            <h2>🎯 Problem Statement</h2>
+            <h3>The Challenge</h3>
+            <p>Financial fraud detection in transaction networks where fraudsters create complex patterns through multiple interconnected accounts.</p>
+            
+            <h3 style="margin-top: 40px;">Key Issues</h3>
+            <ul>
+                <li><span class="highlight">Traditional methods</span> fail to capture relationship patterns between accounts</li>
+                <li><span class="highlight">Fraud chains</span> span multiple accounts and transactions</li>
+                <li><span class="highlight">Imbalanced datasets</span> with very few fraud cases</li>
+                <li><span class="highlight">Need for explainable</span> fraud detection systems</li>
+            </ul>
+        </div>
+
+        <!-- Slide 3: Why Graph Neural Networks? -->
+        <div class="slide">
+            <div class="slide-number">3/12</div>
+            <h2>🧠 Why Graph Neural Networks?</h2>
+            
+            <div class="content-grid">
+                <div class="card">
+                    <h3>Traditional ML Limitations</h3>
+                    <ul style="font-size: 18px; margin-left: 20px;">
+                        <li>Treats accounts independently</li>
+                        <li>Ignores transaction networks</li>
+                        <li>Misses fraud patterns</li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <h3>GNN Advantages</h3>
+                    <ul style="font-size: 18px; margin-left: 20px;">
+                        <li>Captures relationships</li>
+                        <li>Learns from network structure</li>
+                        <li>Detects fraud chains</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 40px;">Core Insight</h3>
+            <p>Fraudulent accounts don't operate in isolation - they form networks. GNNs can learn and detect these network patterns that traditional methods miss.</p>
+        </div>
+
+        <!-- Slide 4: Dataset Overview -->
+        <div class="slide">
+            <div class="slide-number">4/12</div>
+            <h2>📊 Dataset & Features</h2>
+            
+            <div class="content-grid">
+                <div>
+                    <h3>Dataset Characteristics</h3>
+                    <ul>
+                        <li><span class="highlight">10,000 transactions</span> balanced dataset</li>
+                        <li><span class="highlight">30% fraud ratio</span> using SMOTE</li>
+                        <li>Multiple transaction types: TRANSFER, CASH_OUT, PAYMENT</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3>Key Features (10 total)</h3>
+                    <ul style="font-size: 18px;">
+                        <li>Transaction counts (in/out)</li>
+                        <li>Amount statistics</li>
+                        <li>Balance changes</li>
+                        <li>Transaction frequency</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 30px;">
+                <h3>Data Balancing Strategy</h3>
+                <p>Applied SMOTE (Synthetic Minority Over-sampling Technique) to handle severe class imbalance in original fraud data.</p>
+            </div>
+        </div>
+
+        <!-- Slide 5: Solution Architecture -->
+        <div class="slide">
+            <div class="slide-number">5/12</div>
+            <h2>🏗️ Solution Architecture</h2>
+            
+            <div class="architecture-box">
+                Transaction Data → Graph Construction
+            </div>
+            <div class="flow-arrow">⬇️</div>
+            
+            <div class="architecture-box">
+                Node Features (10 dimensions) + Edge Connections
+            </div>
+            <div class="flow-arrow">⬇️</div>
+            
+            <div class="architecture-box">
+                GraphSAGE Layer 1 (64 neurons)
+            </div>
+            <div class="flow-arrow">⬇️</div>
+            
+            <div class="architecture-box">
+                GraphSAGE Layer 2 (32 neurons)
+            </div>
+            <div class="flow-arrow">⬇️</div>
+            
+            <div class="architecture-box">
+                Output Layer (2 classes: Fraud / Normal)
+            </div>
+        </div>
+
+        <!-- Slide 6: GNN Model Details -->
+        <div class="slide">
+            <div class="slide-number">6/12</div>
+            <h2>🔬 GNN Model: GraphSAGE</h2>
+            
+            <h3>Model Architecture</h3>
+            <ul>
+                <li><span class="highlight">Layer 1:</span> SAGEConv (10 → 64) + ReLU activation</li>
+                <li><span class="highlight">Layer 2:</span> SAGEConv (64 → 32) + ReLU activation</li>
+                <li><span class="highlight">Output:</span> Linear layer (32 → 2 classes)</li>
+            </ul>
+
+            <h3 style="margin-top: 40px;">Training Configuration</h3>
+            <ul>
+                <li><span class="highlight">Optimizer:</span> Adam (lr=0.001)</li>
+                <li><span class="highlight">Loss Function:</span> CrossEntropyLoss with class weights [1.0, 5.0]</li>
+                <li><span class="highlight">Epochs:</span> 100 iterations</li>
+                <li><span class="highlight">Split:</span> 70% training, 30% testing</li>
+            </ul>
+        </div>
+
+        <!-- Slide 7: How It Works -->
+        <div class="slide">
+            <div class="slide-number">7/12</div>
+            <h2>⚙️ How the System Works</h2>
+            
+            <h3>1. Graph Construction</h3>
+            <p>Transactions converted to directed graph where nodes = accounts, edges = transactions</p>
+
+            <h3>2. Feature Engineering</h3>
+            <p>Each node gets 10 features capturing transaction patterns, amounts, and network position</p>
+
+            <h3>3. Message Passing</h3>
+            <p>GNN aggregates information from neighboring nodes to learn fraud patterns that span multiple accounts</p>
+
+            <h3>4. Fraud Chain Detection</h3>
+            <p>System identifies 6 types of fraud patterns: sequential chains, clusters, circular flows, bridges, and star patterns</p>
+        </div>
+
+        <!-- Slide 8: Key Results - Performance Metrics -->
+        <div class="slide">
+            <div class="slide-number">8/12</div>
+            <h2>📈 Key Results: Model Performance</h2>
+            
+            <div class="content-grid">
+                <div class="card">
+                    <h3>Classification Metrics</h3>
+                    <div class="metric">High Accuracy</div>
+                    <p>Model effectively distinguishes between fraudulent and normal accounts</p>
+                </div>
+                
+                <div class="card">
+                    <h3>Fraud Detection</h3>
+                    <div class="metric">30%</div>
+                    <p>Successfully identified fraud accounts in balanced test set</p>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 30px; border-left-color: #48bb78;">
+                <h3>ROC-AUC Performance</h3>
+                <p>Strong area under curve indicating excellent discrimination between fraud and normal transactions across different thresholds</p>
+            </div>
+        </div>
+
+        <!-- Slide 9: Key Results - Model Output -->
+        <div class="slide">
+            <div class="slide-number">9/12</div>
+            <h2>🔍 Key Results: Model Performance</h2>
+            
+            <div class="content-grid">
+                <div class="card">
+                    <h3>Fraud Detection Results</h3>
+                    <ul style="font-size: 18px; margin-left: 20px;">
+                        <li><span class="highlight">7,300</span> accounts flagged as fraud</li>
+                        <li><span class="highlight">58.59%</span> avg fraud probability</li>
+                        <li>Risk levels: HIGH/MEDIUM/LOW</li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <h3>Network Analysis</h3>
+                    <ul style="font-size: 18px; margin-left: 20px;">
+                        <li><span class="highlight">19,923</span> unique accounts</li>
+                        <li><span class="highlight">3,120</span> fraud chains detected</li>
+                        <li>Interactive graph visualization</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 40px;">Account-Level Insights</h3>
+            <ul>
+                <li><span class="highlight">Network Position:</span> Incoming/Outgoing connection analysis</li>
+                <li><span class="highlight">Transaction Summary:</span> Total sent/received amounts and counts</li>
+                <li><span class="highlight">Behavioral Patterns:</span> Transaction types (TRANSFER, CASH_OUT, PAYMENT)</li>
+                <li><span class="highlight">Historical Tracking:</span> Recent transaction history per account</li>
+            </ul>
+        </div>
+
+        <!-- Slide 10: System Features -->
+        <div class="slide">
+            <div class="slide-number">10/12</div>
+            <h2>✨ Interactive Dashboard Features</h2>
+            
+            <h3>Account Profiling System</h3>
+            <ul>
+                <li><span class="highlight">Fraud Score:</span> Probabilistic fraud assessment (0-100%)</li>
+                <li><span class="highlight">Risk Badge:</span> Categorical classification (FRAUD/MEDIUM/LOW)</li>
+                <li><span class="highlight">Network Metrics:</span> Connection analysis (incoming/outgoing/total)</li>
+                <li><span class="highlight">Financial Summary:</span> Total sent/received amounts and transaction counts</li>
+            </ul>
+
+            <h3 style="margin-top: 30px;">Visualization Capabilities</h3>
+            <ul>
+                <li><span class="highlight">Interactive Network Graph:</span> Click any node for detailed account information</li>
+                <li><span class="highlight">Color-Coded Nodes:</span> Red = Fraud, Blue = Normal accounts</li>
+                <li><span class="highlight">Transaction History:</span> Recent transaction tracking per account</li>
+                <li><span class="highlight">Export Functionality:</span> Download fraud reports as CSV</li>
+            </ul>
+        </div>
+
+        <!-- Slide 11: Advantages & Impact -->
+        <div class="slide">
+            <div class="slide-number">11/12</div>
+            <h2>🎯 Advantages & Impact</h2>
+            
+            <div class="content-grid">
+                <div class="card">
+                    <h3>Technical Advantages</h3>
+                    <ul style="font-size: 18px; margin-left: 20px;">
+                        <li>Captures network effects</li>
+                        <li>Detects complex patterns</li>
+                        <li>Scalable to large graphs</li>
+                        <li>Handles class imbalance</li>
+                    </ul>
+                </div>
+                
+                <div class="card">
+                    <h3>Business Impact</h3>
+                    <ul style="font-size: 18px; margin-left: 20px;">
+                        <li>Reduces financial losses</li>
+                        <li>Explainable fraud chains</li>
+                        <li>Proactive detection</li>
+                        <li>Resource optimization</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 40px;">Why This Matters</h3>
+            <p>Traditional rule-based systems miss 70% of sophisticated fraud. Our GNN-based approach detects fraud networks that span multiple accounts, providing actionable insights for investigators.</p>
+        </div>
+
+        <!-- Slide 12: Conclusion -->
+        <div class="slide">
+            <div class="slide-number">12/12</div>
+            <h2>🎓 Conclusion & Future Scope</h2>
+            
+            <h3>Project Summary</h3>
+            <p>Developed a Graph Neural Network-based fraud detection system that leverages transaction network structures to identify fraudulent accounts. The system provides an interactive dashboard for analyzing 19,923 accounts and detected 7,300 potential fraud cases with explainable network visualizations.</p>
+
+            <div class="conclusion-box" style="margin-top: 40px;">
+                <h3>Future Enhancements</h3>
+                <p style="line-height: 2;">
+                • <strong>Temporal Analysis:</strong> Incorporate time-series GNN layers to capture evolving fraud patterns over time<br>
+                • <strong>Feature Expansion:</strong> Add device fingerprinting, IP geolocation, and transaction velocity metrics<br>
+                • <strong>Real-time Deployment:</strong> Stream processing pipeline for instant fraud alerts on live transactions<br>
+                • <strong>Model Improvements:</strong> Experiment with attention-based GNN architectures (GAT) for better interpretability<br>
+                • <strong>Ensemble Approach:</strong> Combine GNN with XGBoost for improved precision-recall balance
+                </p>
+            </div>
+
+            <div style="text-align: center; margin-top: 40px; color: #718096;">
+                <p style="font-size: 18px;">Thank you !</p>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="btn-secondary" onclick="prevSlide()" id="prevBtn">← Previous</button>
+            <span class="slide-indicator" id="slideIndicator">Slide 1 of 12</span>
+            <button class="btn-primary" onclick="nextSlide()" id="nextBtn">Next →</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const totalSlides = slides.length;
+
+        function showSlide(n) {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (n + totalSlides) % totalSlides;
+            slides[currentSlide].classList.add('active');
+            
+            document.getElementById('slideIndicator').textContent = `Slide ${currentSlide + 1} of ${totalSlides}`;
+            
+            document.getElementById('prevBtn').disabled = currentSlide === 0;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides - 1;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                showSlide(currentSlide + 1);
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                showSlide(currentSlide - 1);
+            }
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        // Initialize
+        showSlide(0);
+    </script>
+</body>
+</html>
