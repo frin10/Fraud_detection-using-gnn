@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -259,7 +260,6 @@
             const response = await fetch('/api/overview');
             const data = await response.json();
 
-            // Transaction types pie chart
             const typeData = [{
                 values: Object.values(data.type_counts),
                 labels: Object.keys(data.type_counts),
@@ -270,7 +270,6 @@
                 height: 300
             });
 
-            // Amount histogram
             const amountData = [{
                 x: data.amounts,
                 type: 'histogram',
@@ -283,7 +282,6 @@
                 yaxis: {title: 'Frequency'}
             });
 
-            // Sample table
             let tableHTML = '<table class="min-w-full divide-y divide-gray-200">';
             tableHTML += '<thead class="bg-gray-50"><tr>';
             Object.keys(data.sample_transactions[0]).forEach(key => {
@@ -325,7 +323,7 @@
                     size: 10,
                     color: data.nodes.map(n => n.is_fraud ? 'red' : '#9ecae1')
                 },
-                text: data.nodes.map(n => n.id),
+                text: data.nodes.map(n => `Account: ${n.id}<br>Fraud: ${n.is_fraud ? 'Yes' : 'No'}<br>Degree: ${n.total_degree}`),
                 hoverinfo: 'text'
             };
 
@@ -342,7 +340,6 @@
             const response = await fetch('/api/fraud_accounts');
             const data = await response.json();
 
-            // Probability histogram
             const probData = [{
                 x: data.probabilities,
                 type: 'histogram',
@@ -355,7 +352,6 @@
                 yaxis: {title: 'Count'}
             });
 
-            // Risk bar chart
             const riskData = [{
                 x: Object.keys(data.risk_counts),
                 y: Object.values(data.risk_counts),
@@ -371,7 +367,6 @@
                 height: 300
             });
 
-            // Fraud accounts table
             let tableHTML = '<table class="min-w-full divide-y divide-gray-200">';
             tableHTML += '<thead class="bg-gray-50"><tr>';
             tableHTML += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Account</th>';
@@ -400,21 +395,87 @@
             if (data.chains.length === 0) {
                 html = '<p class="text-gray-500">No fraud chains detected.</p>';
             } else {
+                // Group chains by type
+                const chainsByType = {
+                    'sequential': [],
+                    'cluster': [],
+                    'circular': [],
+                    'bridge': [],
+                    'star_out': [],
+                    'star_in': []
+                };
+                
                 data.chains.forEach(chain => {
-                    html += `
-                        <div class="border rounded-lg p-4 mb-3 hover:bg-gray-50">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-semibold">Chain ${chain.id}</h4>
-                                <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">
-                                    Risk: ${(chain.risk_score * 100).toFixed(1)}%
-                                </span>
-                            </div>
-                            <code class="block bg-gray-100 p-3 rounded text-sm mb-2">${chain.chain_str}</code>
-                            <p class="text-sm text-gray-600">
-                                ${chain.fraud_nodes} of ${chain.length} accounts are fraudulent
-                            </p>
-                        </div>
-                    `;
+                    const type = chain.type || 'sequential';
+                    if (chainsByType[type]) {
+                        chainsByType[type].push(chain);
+                    }
+                });
+                
+                // Type descriptions and emojis
+                const typeInfo = {
+                    'sequential': { name: 'Sequential Chains', emoji: '➡️', desc: 'Linear fraud transaction flows' },
+                    'cluster': { name: 'Fraud Clusters', emoji: '🔴', desc: 'Groups of interconnected fraud accounts' },
+                    'circular': { name: 'Circular Patterns', emoji: '🔄', desc: 'Money laundering loops' },
+                    'bridge': { name: 'Bridge Connections', emoji: '🌉', desc: 'Paths connecting fraud nodes' },
+                    'star_out': { name: 'Distribution Patterns', emoji: '⭐', desc: 'One account sending to multiple fraud accounts' },
+                    'star_in': { name: 'Collection Patterns', emoji: '🎯', desc: 'Multiple fraud accounts sending to one' }
+                };
+                
+                // Display summary
+                html += `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <h3 class="text-lg font-semibold text-blue-900 mb-2">🔍 Chain Detection Summary</h3>
+                        <p class="text-sm text-blue-800">Found <strong>${data.chains.length}</strong> total fraud patterns across <strong>${Object.keys(chainsByType).filter(k => chainsByType[k].length > 0).length}</strong> different types</p>
+                    </div>
+                `;
+                
+                // Display each type
+                Object.keys(typeInfo).forEach(type => {
+                    const chains = chainsByType[type];
+                    if (chains.length > 0) {
+                        const info = typeInfo[type];
+                        html += `
+                            <div class="mb-6">
+                                <div class="flex items-center mb-3">
+                                    <span class="text-2xl mr-2">${info.emoji}</span>
+                                    <div>
+                                        <h4 class="text-lg font-bold text-gray-800">${info.name}</h4>
+                                        <p class="text-sm text-gray-600">${info.desc} (${chains.length} found)</p>
+                                    </div>
+                                </div>
+                        `;
+                        
+                        chains.forEach((chain, idx) => {
+                            const riskColor = chain.risk_score > 0.7 ? 'bg-red-100 text-red-800' : 
+                                            chain.risk_score > 0.5 ? 'bg-orange-100 text-orange-800' : 
+                                            'bg-yellow-100 text-yellow-800';
+                            
+                            html += `
+                                <div class="border-l-4 ${chain.risk_score > 0.7 ? 'border-red-500' : chain.risk_score > 0.5 ? 'border-orange-500' : 'border-yellow-500'} bg-white rounded-lg p-4 mb-3 shadow-sm hover:shadow-md transition">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-1">
+                                                <span class="font-semibold text-gray-700">Pattern ${idx + 1}</span>
+                                                <span class="px-2 py-1 ${riskColor} rounded-full text-xs font-bold">
+                                                    ${(chain.risk_score * 100).toFixed(0)}% Fraud
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="text-right text-sm text-gray-600">
+                                            <div>Length: <strong>${chain.length}</strong></div>
+                                            <div>Fraud Nodes: <strong class="text-red-600">${chain.fraud_nodes}</strong></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-gray-50 p-3 rounded text-sm font-mono overflow-x-auto">
+                                        ${chain.chain_str}
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += '</div>';
+                    }
                 });
             }
             document.getElementById('chainsList').innerHTML = html;
@@ -424,7 +485,6 @@
             const response = await fetch('/api/analytics');
             const data = await response.json();
 
-            // Top accounts
             const accountData = [{
                 x: data.top_accounts.accounts,
                 y: data.top_accounts.counts,
@@ -435,7 +495,6 @@
                 height: 300
             });
 
-            // Confusion matrix
             if (data.confusion_matrix) {
                 Plotly.newPlot('confusionMatrixChart', [{
                     z: data.confusion_matrix,
@@ -452,7 +511,6 @@
                 });
             }
 
-            // ROC curve
             if (data.roc) {
                 const rocData = [
                     {x: data.roc.fpr, y: data.roc.tpr, mode: 'lines', name: `ROC (AUC=${data.roc.auc.toFixed(3)})`},
@@ -466,7 +524,6 @@
                 });
             }
 
-            // Threshold analysis
             if (data.threshold_analysis) {
                 const threshData = [
                     {x: data.threshold_analysis.thresholds, y: data.threshold_analysis.recalls, 
@@ -482,7 +539,6 @@
                 });
             }
 
-            // Temporal analysis
             if (data.temporal) {
                 const temporalData = [{
                     x: data.temporal.steps,
@@ -500,20 +556,16 @@
         }
 
         function showTab(tabName) {
-            // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.add('hidden');
             });
             
-            // Remove active class from all buttons
             document.querySelectorAll('.tab-button').forEach(btn => {
                 btn.classList.remove('active');
             });
 
-            // Show selected tab
             document.getElementById(tabName + 'Tab').classList.remove('hidden');
             
-            // Add active class to clicked button
             event.target.classList.add('active');
         }
     </script>
