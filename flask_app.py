@@ -53,24 +53,20 @@ load_model()
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'csv'
 
-def find_fraud_chains(G, fraud_nodes, max_depth=4):
+def find_fraud_chains(G, fraud_nodes, max_depth=6):
     """
-    Enhanced fraud chain detection with multiple strategies:
-    1. BFS chains starting from fraud nodes
-    2. Fraud cluster detection
-    3. Circular fraud patterns
-    4. Multi-hop fraud connections
+    Enhanced fraud chain detection focusing on 3-4+ fraud account chains
     """
     chains = []
     visited = set()
-    fraud_nodes = set(fraud_nodes)  # Ensure it's a set
+    fraud_nodes = set(fraud_nodes)
 
-    # Strategy 1: BFS-based fraud chains (original + enhanced)
+    # Strategy 1: Deep BFS for longer fraud chains (3-4+ fraud accounts)
     for start in fraud_nodes:
         if start not in G:
             continue
             
-        queue = deque([(start, [start], 0)])  # (current_node, path, depth)
+        queue = deque([(start, [start], 0)])
         
         while queue:
             cur, path, depth = queue.popleft()
@@ -94,125 +90,163 @@ def find_fraud_chains(G, fraud_nodes, max_depth=4):
 
                 fraud_count = sum(n in fraud_nodes for n in new_path)
                 
-                # Accept chains with at least 2 fraud nodes OR long chains with some fraud
-                if fraud_count >= 2 or (len(new_path) >= 3 and fraud_count >= 1):
+                # Priority: chains with 3+ fraud accounts
+                if fraud_count >= 3:
                     chains.append({
                         "chain": new_path,
                         "length": len(new_path),
                         "fraud_nodes": fraud_count,
                         "risk_score": fraud_count / len(new_path),
-                        "type": "sequential"
+                        "type": "sequential",
+                        "priority": 1  # High priority
+                    })
+                # Also accept 2 fraud nodes if chain is longer
+                elif fraud_count >= 2 and len(new_path) >= 3:
+                    chains.append({
+                        "chain": new_path,
+                        "length": len(new_path),
+                        "fraud_nodes": fraud_count,
+                        "risk_score": fraud_count / len(new_path),
+                        "type": "sequential",
+                        "priority": 2  # Medium priority
                     })
                 
-                # Continue exploring if not too deep
                 if new_depth < max_depth:
                     queue.append((nxt, new_path, new_depth))
     
-    # Strategy 2: Detect fraud clusters (groups of interconnected fraud nodes)
+    # Strategy 2: Find extended fraud paths (focus on 3+ fraud nodes)
+    fraud_list = list(fraud_nodes)[:30]
+    for i, start_fraud in enumerate(fraud_list):
+        for end_fraud in fraud_list[i+1:]:
+            try:
+                if nx.has_path(G, start_fraud, end_fraud):
+                    # Get all simple paths up to max_depth
+                    all_paths = list(nx.all_simple_paths(G, start_fraud, end_fraud, cutoff=max_depth))
+                    
+                    for path in all_paths[:5]:  # Limit paths per pair
+                        path_key = tuple(path)
+                        if path_key in visited:
+                            continue
+                        visited.add(path_key)
+                        
+                        fraud_in_path = sum(n in fraud_nodes for n in path)
+                        if fraud_in_path >= 3:  # Focus on 3+ fraud
+                            chains.append({
+                                "chain": path,
+                                "length": len(path),
+                                "fraud_nodes": fraud_in_path,
+                                "risk_score": fraud_in_path / len(path),
+                                "type": "bridge",
+                                "priority": 1
+                            })
+                        elif fraud_in_path >= 2 and len(path) >= 4:
+                            chains.append({
+                                "chain": path,
+                                "length": len(path),
+                                "fraud_nodes": fraud_in_path,
+                                "risk_score": fraud_in_path / len(path),
+                                "type": "bridge",
+                                "priority": 2
+                            })
+            except:
+                continue
+    
+    # Strategy 3: Fraud clusters (groups of 3+ fraud nodes)
     fraud_subgraph = G.subgraph(fraud_nodes)
-    if fraud_subgraph.number_of_nodes() > 0:
-        # Find connected components in fraud subgraph
+    if fraud_subgraph.number_of_nodes() >= 3:
         if hasattr(nx, 'weakly_connected_components'):
             components = list(nx.weakly_connected_components(fraud_subgraph))
         else:
             components = list(nx.connected_components(fraud_subgraph.to_undirected()))
         
         for comp in components:
-            if len(comp) >= 2:
+            if len(comp) >= 3:  # Only clusters with 3+ fraud nodes
                 comp_list = list(comp)
                 chains.append({
                     "chain": comp_list,
                     "length": len(comp_list),
                     "fraud_nodes": len(comp_list),
-                    "risk_score": 1.0,  # All fraud
-                    "type": "cluster"
+                    "risk_score": 1.0,
+                    "type": "cluster",
+                    "priority": 1
                 })
     
-    # Strategy 3: Find circular patterns (cycles involving fraud)
+    # Strategy 4: Circular patterns with 3+ fraud nodes
     try:
         cycles = list(nx.simple_cycles(G))
-        for cycle in cycles[:100]:  # Limit to first 100 cycles
-            if len(cycle) >= 3 and len(cycle) <= max_depth:
+        for cycle in cycles[:200]:
+            if 3 <= len(cycle) <= max_depth:
                 fraud_in_cycle = sum(n in fraud_nodes for n in cycle)
-                if fraud_in_cycle >= 2:
+                if fraud_in_cycle >= 3:  # Focus on 3+ fraud in cycles
                     cycle_key = tuple(sorted(cycle))
                     if cycle_key not in visited:
                         visited.add(cycle_key)
                         chains.append({
-                            "chain": cycle + [cycle[0]],  # Close the loop
+                            "chain": cycle + [cycle[0]],
                             "length": len(cycle),
                             "fraud_nodes": fraud_in_cycle,
                             "risk_score": fraud_in_cycle / len(cycle),
-                            "type": "circular"
+                            "type": "circular",
+                            "priority": 1
+                        })
+                elif fraud_in_cycle >= 2 and len(cycle) >= 4:
+                    cycle_key = tuple(sorted(cycle))
+                    if cycle_key not in visited:
+                        visited.add(cycle_key)
+                        chains.append({
+                            "chain": cycle + [cycle[0]],
+                            "length": len(cycle),
+                            "fraud_nodes": fraud_in_cycle,
+                            "risk_score": fraud_in_cycle / len(cycle),
+                            "type": "circular",
+                            "priority": 2
                         })
     except:
-        pass  # Skip if cycle detection fails
+        pass
     
-    # Strategy 4: Find multi-hop connections between fraud nodes
-    fraud_list = list(fraud_nodes)[:20]  # Limit to first 20 fraud nodes for performance
-    for i, start_fraud in enumerate(fraud_list):
-        for end_fraud in fraud_list[i+1:]:
-            try:
-                # Find shortest path between two fraud nodes
-                if nx.has_path(G, start_fraud, end_fraud):
-                    path = nx.shortest_path(G, start_fraud, end_fraud)
-                    if 2 <= len(path) <= max_depth:
-                        path_key = tuple(path)
-                        if path_key not in visited:
-                            visited.add(path_key)
-                            fraud_in_path = sum(n in fraud_nodes for n in path)
-                            if fraud_in_path >= 2:
-                                chains.append({
-                                    "chain": path,
-                                    "length": len(path),
-                                    "fraud_nodes": fraud_in_path,
-                                    "risk_score": fraud_in_path / len(path),
-                                    "type": "bridge"
-                                })
-            except:
-                continue
-    
-    # Strategy 5: Find star patterns (one node connected to multiple fraud nodes)
-    for node in G.nodes():
+    # Strategy 5: Multi-fraud star patterns (3+ fraud connections)
+    for node in list(G.nodes())[:100]:
         if node in fraud_nodes:
             continue
         
-        # Check outgoing connections to fraud
         out_fraud = [n for n in G.successors(node) if n in fraud_nodes]
-        if len(out_fraud) >= 2:
+        if len(out_fraud) >= 3:  # 3+ fraud connections
             star_chain = [node] + out_fraud
             chains.append({
                 "chain": star_chain,
                 "length": len(star_chain),
                 "fraud_nodes": len(out_fraud),
                 "risk_score": len(out_fraud) / len(star_chain),
-                "type": "star_out"
+                "type": "star_out",
+                "priority": 1
             })
         
-        # Check incoming connections from fraud
         in_fraud = [n for n in G.predecessors(node) if n in fraud_nodes]
-        if len(in_fraud) >= 2:
+        if len(in_fraud) >= 3:  # 3+ fraud connections
             star_chain = in_fraud + [node]
             chains.append({
                 "chain": star_chain,
                 "length": len(star_chain),
                 "fraud_nodes": len(in_fraud),
                 "risk_score": len(in_fraud) / len(star_chain),
-                "type": "star_in"
+                "type": "star_in",
+                "priority": 1
             })
     
-    # Remove duplicates and sort by risk score
+    # Remove duplicates
     unique_chains = []
     seen_chains = set()
     
     for chain in chains:
-        # Create a canonical representation
         chain_set = frozenset(chain["chain"])
         if chain_set not in seen_chains:
             seen_chains.add(chain_set)
             unique_chains.append(chain)
     
-    return sorted(unique_chains, key=lambda x: (x["risk_score"], x["fraud_nodes"]), reverse=True)
+    # Sort by priority, then risk score, then fraud count
+    return sorted(unique_chains, 
+                  key=lambda x: (x.get("priority", 3), x["risk_score"], x["fraud_nodes"]), 
+                  reverse=False)  # Lower priority number = higher priority
 
 def process_data(df, fraud_threshold=0.5):
     """Process uploaded data and return results"""
@@ -452,19 +486,66 @@ def get_fraud_chains():
     if current_data is None:
         return jsonify({'error': 'No data loaded'}), 400
     
-    chains = current_data['fraud_chains'][:50]  # Increased from 15 to 50
+    chains = current_data['fraud_chains'][:50]
+    df = current_data['df']
+    results = current_data['results']
+    G = current_data['G']
     
-    # Format chains for JSON
+    # Format chains with detailed account info
     formatted_chains = []
     for i, c in enumerate(chains):
+        # Get detailed info for each account in the chain
+        account_details = []
+        for account in c['chain']:
+            # Get fraud probability
+            acc_result = results[results.account == account]
+            fraud_prob = float(acc_result['fraud_probability'].iloc[0]) if not acc_result.empty else 0.0
+            risk_level = str(acc_result['risk'].iloc[0]) if not acc_result.empty else 'UNKNOWN'
+            is_fraud = fraud_prob >= 0.5
+            
+            # Get transaction stats
+            as_orig = df[df.nameOrig == account]
+            as_dest = df[df.nameDest == account]
+            
+            total_sent = float(as_orig['amount'].sum()) if not as_orig.empty else 0.0
+            total_received = float(as_dest['amount'].sum()) if not as_dest.empty else 0.0
+            num_txns = len(as_orig) + len(as_dest)
+            
+            # Get connections
+            out_degree = G.out_degree(account) if account in G else 0
+            in_degree = G.in_degree(account) if account in G else 0
+            
+            account_details.append({
+                'id': account,
+                'fraud_prob': fraud_prob,
+                'risk_level': risk_level,
+                'is_fraud': is_fraud,
+                'total_sent': total_sent,
+                'total_received': total_received,
+                'num_transactions': num_txns,
+                'out_degree': out_degree,
+                'in_degree': in_degree
+            })
+        
+        # Calculate chain transaction flow
+        chain_amount = 0.0
+        for j in range(len(c['chain']) - 1):
+            src = c['chain'][j]
+            dest = c['chain'][j + 1]
+            edge_txns = df[(df.nameOrig == src) & (df.nameDest == dest)]
+            chain_amount += float(edge_txns['amount'].sum()) if not edge_txns.empty else 0.0
+        
         formatted_chains.append({
             'id': i + 1,
             'chain': c['chain'],
-            'chain_str': ' → '.join(c['chain']),
+            'chain_str': ' → '.join([acc[:8] + '...' for acc in c['chain']]),
             'length': c['length'],
             'fraud_nodes': c['fraud_nodes'],
             'risk_score': c['risk_score'],
-            'type': c.get('type', 'sequential')  # Include chain type
+            'type': c.get('type', 'sequential'),
+            'priority': c.get('priority', 3),
+            'total_amount': chain_amount,
+            'account_details': account_details
         })
     
     return jsonify({'chains': formatted_chains})
@@ -593,4 +674,14 @@ def download_fraud_accounts():
     )
 
 if __name__ == '__main__':
+    import sys
+    
+    # Check if running from Streamlit
+    if 'streamlit' in sys.modules:
+        print("⚠️ WARNING: This is a Flask application, not a Streamlit app!")
+        print("Please run it directly with: python app.py")
+        print("Do not use: streamlit run app.py")
+        sys.exit(1)
+    
+    # Run Flask app
     app.run(debug=True, host='0.0.0.0', port=5000)
